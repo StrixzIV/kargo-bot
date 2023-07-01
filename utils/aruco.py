@@ -15,7 +15,7 @@ def process_aruco(frame: np.ndarray, aruco_dict: cv2.aruco.Dictionary, aruco_par
 
         corners = marker_corner.reshape((4, 2))
 
-        (top_left, top_right, bottom_left, bottom_right) = corners
+        (top_left, bottom_left, top_right, bottom_right) = corners
 
         top_right = (int(top_right[0]), int(top_right[1]))
         bottom_right = (int(bottom_right[0]), int(bottom_right[1]))
@@ -36,3 +36,19 @@ def process_aruco(frame: np.ndarray, aruco_dict: cv2.aruco.Dictionary, aruco_par
 
     return (ids, view_frame)
 
+
+def pose_estimation(frame: np.ndarray, aruco_dict: cv2.aruco.Dictionary, aruco_params: cv2.aruco.DetectorParameters, matrix_coefficients: np.array, distortion_coefficients: np.array) -> np.ndarray:
+
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    (corners, ids, rejected) = cv2.aruco.detectMarkers(gray, aruco_dict, parameters = aruco_params, cameraMatrix = matrix_coefficients, distCoeff = distortion_coefficients)
+
+    if corners:
+        for i in range(0, len(ids)):
+            
+            (rotation_vector, transformation_vector, marker_points) = cv2.aruco.estimatePoseSingleMarkers(corners[i], 0.02, matrix_coefficients, distortion_coefficients)
+
+            cv2.aruco.drawDetectedMarkers(frame, corners)
+            cv2.aruco.drawAxis(frame, matrix_coefficients, distortion_coefficients, rotation_vector, transformation_vector, 0.01)
+
+    return frame

@@ -2,3 +2,6 @@
 *.env
 *.pcd
 *.pyc
+
+/calibration_data
+/calibration_output

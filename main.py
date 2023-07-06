@@ -1,26 +1,36 @@
-import cv2
-from utils.aruco import process_aruco
+import os
 
-aruco_type = cv2.aruco.DICT_5X5_100
-aruco_dict = cv2.aruco.getPredefinedDictionary(aruco_type)
-aruco_params = cv2.aruco.DetectorParameters()
+from flask import Flask, request
+from flask_cors import CORS, cross_origin
 
-cam_stream = cv2.VideoCapture(0)
+app = Flask(__name__)
+cors = CORS(app)
 
-while True:
+PORT = 3000
 
-    (is_frame, frame) = cam_stream.read()
+app.config['MAX_CONTENT_LENGTH'] = 1024
 
-    if not is_frame:
-        continue
+def show_ready(port: int) -> None:
 
-    (ids, view_frame) = process_aruco(frame, aruco_dict, aruco_params)
+    os.system('cls' if os.name == 'nt' else 'clear')
+    
+    print('REST API ready!')
+    print('Press ctrl+c to exit.')
+    print(f'API running on: http://localhost:{port}')
+    
 
-    print(f'ArUco ID detected: {ids}')
-    cv2.imshow('ArUco View', view_frame)
+@cross_origin()
+@app.route('/control', methods = ['POST'])
+def send_response():
+    
+    body = request.get_json()
+    
+    if body is None or body['action'] == '':
+        return ({}, 400)
+    
+    return ({'action': f'You selected: {body["action"]}'}, 200)
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
 
-cam_stream.release()
-cv2.destroyAllWindows()
+if __name__ == '__main__':
+    show_ready(PORT)
+    app.run(host = '0.0.0.0', port = PORT)

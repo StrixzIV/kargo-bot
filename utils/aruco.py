@@ -49,6 +49,15 @@ def pose_estimation(frame: np.ndarray, aruco_dict: cv2.aruco.Dictionary, aruco_p
             (rotation_vector, transformation_vector, marker_points) = cv2.aruco.estimatePoseSingleMarkers(corners[i], 0.02, matrix_coefficients, distortion_coefficients)
 
             print(f'#{ids} -> rvecs = {rotation_vector}, tvecs = {transformation_vector}')
+            
+            rotation_matrix = cv2.Rodrigues(rotation_vector)
+            (yaw, pitch, roll) = cv2.decomposeProjectionMatrix(rotation_matrix)[6]
+            
+            yaw_deg = np.rad2deg(yaw)
+            pitch_deg = np.rad2deg(pitch)
+            roll_deg = np.rad2deg(roll)
+            
+            print(f'Roll: {roll_deg}deg, {pitch_deg}deg, {yaw_deg}deg')
 
             cv2.aruco.drawDetectedMarkers(frame, corners)
             cv2.drawFrameAxes(frame, matrix_coefficients, distortion_coefficients, rotation_vector, transformation_vector, 0.01)

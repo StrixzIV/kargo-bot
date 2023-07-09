@@ -41,14 +41,16 @@ def pose_estimation(frame: np.ndarray, aruco_dict: cv2.aruco.Dictionary, aruco_p
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    (corners, ids, rejected) = cv2.aruco.detectMarkers(gray, aruco_dict, parameters = aruco_params, cameraMatrix = matrix_coefficients, distCoeff = distortion_coefficients)
+    (corners, ids, rejected) = cv2.aruco.detectMarkers(gray, aruco_dict, parameters = aruco_params)
 
     if corners:
         for i in range(0, len(ids)):
             
             (rotation_vector, transformation_vector, marker_points) = cv2.aruco.estimatePoseSingleMarkers(corners[i], 0.02, matrix_coefficients, distortion_coefficients)
 
+            print(f'#{ids} -> rvecs = {rotation_vector}, tvecs = {transformation_vector}')
+
             cv2.aruco.drawDetectedMarkers(frame, corners)
-            cv2.aruco.drawAxis(frame, matrix_coefficients, distortion_coefficients, rotation_vector, transformation_vector, 0.01)
+            cv2.drawFrameAxes(frame, matrix_coefficients, distortion_coefficients, rotation_vector, transformation_vector, 0.01)
 
     return frame

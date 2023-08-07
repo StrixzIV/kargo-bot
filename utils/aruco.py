@@ -1,5 +1,45 @@
 import cv2
+import math
 import numpy as np
+
+flip_mat = np.zeros((3, 3), dtype = np.float32)
+
+flip_mat[0, 0] = 1.0
+flip_mat[1, 1] = -1.0
+flip_mat[2, 2] = -1.0
+
+def is_rotation_matrix(matrix: np.matrix) -> bool:
+    
+    transponsed = np.transpose(matrix)
+    excepted = np.dot(transponsed, matrix)
+
+    identity_mat = np.identity(3, dtype = matrix.dtype)
+    norm = np.linalg.norm(identity_mat - excepted)
+    
+    return norm < 1e-6
+
+
+def rotation_matrix_to_euler(rotation_matrix: np.matrix) -> np.ndarray:
+
+    assert is_rotation_matrix(rotation_matrix)
+
+    sy = math.sqrt((rotation_matrix[0, 0] ** 2) + (rotation_matrix[0, 1] ** 2))
+
+    singular = sy < 1e-6
+
+    if singular:
+        return np.array([
+            math.atan2(-rotation_matrix[1, 2], rotation_matrix[1, 1]),
+            math.atan2(-rotation_matrix[2, 0], sy),
+            0
+        ])
+    
+    return np.array([
+        math.atan2(rotation_matrix[2, 1], rotation_matrix[2, 2]),
+        math.atan2(-rotation_matrix[2, 0], sy),
+        math.atan2(rotation_matrix[1, 0], rotation_matrix[0, 0])
+    ])
+
 
 def process_aruco(frame: np.ndarray, aruco_dict: cv2.aruco.Dictionary, aruco_params: cv2.aruco.DetectorParameters) -> tuple[list[int], np.ndarray]:
 
@@ -48,16 +88,32 @@ def pose_estimation(frame: np.ndarray, aruco_dict: cv2.aruco.Dictionary, aruco_p
             
             (rotation_vector, transformation_vector, marker_points) = cv2.aruco.estimatePoseSingleMarkers(corners[i], 0.02, matrix_coefficients, distortion_coefficients)
 
-            print(f'#{ids} -> rvecs = {rotation_vector}, tvecs = {transformation_vector}')
+            (transformation_vector, rotation_vector) = (transformation_vector[0, 0, :], rotation_vector[0, 0, :])
+
+            cv2.putText(
+                frame,
+                text = f'#{ids[i]} -> tvecs = x: {transformation_vector[0]:.2f}, y: {transformation_vector[1]:.2f}, z: {transformation_vector[2]:.2f}',
+                org = (0, 30),
+                fontFace = cv2.FONT_HERSHEY_SIMPLEX,
+                fontScale = 0.8,
+                color = (0, 255, 0),
+                thickness = 2
+            )
             
-            rotation_matrix = cv2.Rodrigues(rotation_vector)
-            (yaw, pitch, roll) = cv2.decomposeProjectionMatrix(rotation_matrix)[6]
+            rotation_matrix = np.matrix(cv2.Rodrigues(rotation_vector)[0]).T
+
+            (roll_rad, pitch_rad, yaw_rad) = rotation_matrix_to_euler(flip_mat * rotation_matrix)
+            (roll_deg, pitch_deg, yaw_deg) = (math.degrees(roll_rad), math.degrees(pitch_rad), math.degrees(yaw_rad))
             
-            yaw_deg = np.rad2deg(yaw)
-            pitch_deg = np.rad2deg(pitch)
-            roll_deg = np.rad2deg(roll)
-            
-            print(f'Roll: {roll_deg}deg, {pitch_deg}deg, {yaw_deg}deg')
+            cv2.putText(
+                frame,
+                text = f'Roll: {roll_deg:.2f}deg, Pitch: {pitch_deg:.2f}deg, Yaw: {yaw_deg:.2f}deg',
+                org = (0, 70),
+                fontFace = cv2.FONT_HERSHEY_SIMPLEX,
+                fontScale = 0.8,
+                color = (0, 255, 0),
+                thickness = 2
+            )
 
             cv2.aruco.drawDetectedMarkers(frame, corners)
             cv2.drawFrameAxes(frame, matrix_coefficients, distortion_coefficients, rotation_vector, transformation_vector, 0.01)

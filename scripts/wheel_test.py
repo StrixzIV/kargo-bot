@@ -4,6 +4,8 @@ import RPi.GPIO as gpio
 (en_left, en_right) = (13, 19)
 (in1, in2, in3, in4) = (25, 24, 23, 18)
 
+gpio.setmode(gpio.BCM)
+
 gpio.setup(in1, gpio.OUT)
 gpio.setup(in2, gpio.OUT)
 gpio.setup(in3, gpio.OUT)
@@ -18,8 +20,8 @@ power_right = gpio.PWM(en_right, 50)
 power_left.start(0)
 power_right.start(0)
 
-power_left.ChangeDutyCycle(30)
-power_right.ChangeDutyCycle(30)
+power_left.ChangeDutyCycle(100)
+power_right.ChangeDutyCycle(100)
 
 gpio.output(in1, gpio.HIGH)
 gpio.output(in2, gpio.LOW)

@@ -1,6 +1,37 @@
 import cv2 
 import numpy as np
 
+import time
+import RPi.GPIO as gpio
+
+(en_left, en_right) = (19, 13)
+(in1, in2, in3, in4) = (25, 24, 23, 18)
+
+sensitivity = 15
+lower_white = np.array([0,0,255-sensitivity])
+upper_white = np.array([255,sensitivity,255])
+
+gpio.setmode(gpio.BCM)
+
+gpio.setup(in1, gpio.OUT)
+gpio.setup(in2, gpio.OUT)
+gpio.setup(in3, gpio.OUT)
+gpio.setup(in4, gpio.OUT)
+
+gpio.output(in1, gpio.HIGH)
+gpio.output(in2, gpio.LOW)
+gpio.output(in3, gpio.HIGH)
+gpio.output(in4, gpio.LOW)
+
+gpio.setup(en_left, gpio.OUT)
+gpio.setup(en_right, gpio.OUT)
+
+power_left = gpio.PWM(en_left, 50)
+power_right = gpio.PWM(en_right, 50)
+
+power_left.start(0)
+power_right.start(0)
+
 kernel = np.ones((3, 3), np.float32) / 9
 
 def ROI(frame: np.ndarray, width: int, height: int) -> np.ndarray:
@@ -148,18 +179,52 @@ def find_center(frame: np.ndarray, lane_lines: any, width: int) -> tuple[int, in
 def calculate_feedback(lane_center_point: float, left_x_base: int, right_x_base: int) -> str:
     
     lane_center = left_x_base + (right_x_base - left_x_base) / 2
+    print(lane_center)
+    
+    left_spd = 38
+    right_spd = 35
     
     deviation = lane_center_point - lane_center
+    
+    # if lane_center >= 430:
+    #     power_left.ChangeDutyCycle(left_spd + .75)
+    #     power_right.ChangeDutyCycle(right_spd)
+        
+    #     return 'Hard Left'
  
-    if deviation > 160:
+    if 400 <= lane_center < 430:
+        
+        power_left.ChangeDutyCycle(left_spd + .5)
+        power_right.ChangeDutyCycle(right_spd)
+        
         return 'Smooth Left'
     
-    elif deviation < 40 or deviation > 150 and deviation <= 160:
-        return 'Smooth Right'
-    
-    elif deviation >= 40 and deviation <= 150:
+    elif 280 <= lane_center < 400:
+        
+        power_left.ChangeDutyCycle(left_spd)
+        power_right.ChangeDutyCycle(right_spd)
+        
         return 'Straight'
     
+    elif 260 <= lane_center < 280:
+        
+        power_left.ChangeDutyCycle(left_spd)
+        power_right.ChangeDutyCycle(right_spd + .5)
+        
+        return 'Smooth Right'
+    
+    # elif lane_center < 260:
+        
+    #     power_left.ChangeDutyCycle(left_spd)
+    #     power_right.ChangeDutyCycle(right_spd + .75)
+        
+    #     return 'Hard Right'
+    
+    else:
+        power_left.ChangeDutyCycle(30)
+        power_right.ChangeDutyCycle(30)
+    
+     
     
 def get_feedback_from_lane(frame: np.ndarray, debug: bool = False) -> str:
 
@@ -168,6 +233,7 @@ def get_feedback_from_lane(frame: np.ndarray, debug: bool = False) -> str:
     denoised_frame = cv2.filter2D(frame, -1, kernel)
     
     gray = cv2.cvtColor(denoised_frame, cv2.COLOR_BGR2GRAY)
+    gray = cv2.GaussianBlur(gray, ksize = (5, 5), sigmaX = 10)
     canny = cv2.Canny(gray, 50, 150)
     
     roi = ROI(canny, width, height)
@@ -207,7 +273,10 @@ if __name__ == '__main__':
         
         feedback = get_feedback_from_lane(frame, debug = True)
         
-        print(feedback)
+        # if not feedback:
+            
         
+        print(feedback)
+         
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break

@@ -36,19 +36,20 @@ kernel = np.ones((3, 3), np.float32) / 9
 
 def ROI(frame: np.ndarray, width: int, height: int) -> np.ndarray:
     
-    polygon = np.array([[
-        (int(width*0.30), height),              # Bottom-left point
-        (int(width*0.46),  int(height*0.72)),   # Top-left point
-        (int(width*0.58), int(height*0.72)),    # Top-right point
-        (int(width*0.82), height),              # Bottom-right point
-    ]], dtype = np.int32)
-        
     mask = np.zeros_like(frame)
-    cv2.fillPoly(mask, polygon, 255)
+    match_mask_color = 255
     
-    roi = cv2.bitwise_and(frame, mask)
+    vertices = np.array([[
+        (0, height / 2),
+        (width, height / 2),
+        (width, height),
+        (0, height),
+    ]], np.int32)
+      
+    cv2.fillPoly(mask, vertices, match_mask_color)
+    masked_image = cv2.bitwise_and(frame, mask)
     
-    return roi
+    return masked_image
 
 
 
@@ -62,10 +63,10 @@ def warp_perspective(frame: np.ndarray, width: int, height: int) -> np.ndarray:
     offset = 50    
     
     source_points = np.float32([
-        [int(width*0.46), int(height*0.72)], # Top-left point
-        [int(width*0.58), int(height*0.72)], # Top-right point
-        [int(width*0.30), height], # Bottom-left point
-        [int(width*0.82), height] # Bottom-right point
+        [int(width*0.20), int(height*0.5)], # Top-left point
+        [int(width*0.80), int(height*0.5)], # Top-right point
+        [0, height], # Bottom-left point
+        [width, height] # Bottom-right point
     ])
     
     destination_points = np.float32([
@@ -179,18 +180,12 @@ def find_center(frame: np.ndarray, lane_lines: any, width: int) -> tuple[int, in
 def calculate_feedback(lane_center_point: float, left_x_base: int, right_x_base: int) -> str:
     
     lane_center = left_x_base + (right_x_base - left_x_base) / 2
-    print(lane_center)
     
-    left_spd = 38
-    right_spd = 35
+    left_spd = 38 + 2.5
+    right_spd = 35 + 2.5
     
     deviation = lane_center_point - lane_center
-    
-    # if lane_center >= 430:
-    #     power_left.ChangeDutyCycle(left_spd + .75)
-    #     power_right.ChangeDutyCycle(right_spd)
-        
-    #     return 'Hard Left'
+    print(lane_center, deviation)
  
     if 400 <= lane_center < 430:
         
@@ -213,16 +208,9 @@ def calculate_feedback(lane_center_point: float, left_x_base: int, right_x_base:
         
         return 'Smooth Right'
     
-    # elif lane_center < 260:
-        
-    #     power_left.ChangeDutyCycle(left_spd)
-    #     power_right.ChangeDutyCycle(right_spd + .75)
-        
-    #     return 'Hard Right'
-    
     else:
-        power_left.ChangeDutyCycle(30)
-        power_right.ChangeDutyCycle(30)
+        power_left.ChangeDutyCycle(20)
+        power_right.ChangeDutyCycle(20)
     
      
     
@@ -233,13 +221,17 @@ def get_feedback_from_lane(frame: np.ndarray, debug: bool = False) -> str:
     denoised_frame = cv2.filter2D(frame, -1, kernel)
     
     gray = cv2.cvtColor(denoised_frame, cv2.COLOR_BGR2GRAY)
-    gray = cv2.GaussianBlur(gray, ksize = (5, 5), sigmaX = 10)
-    canny = cv2.Canny(gray, 50, 150)
+    gray = cv2.GaussianBlur(gray, ksize = (3, 3), sigmaX = 4)
     
-    roi = ROI(canny, width, height)
-    warped_frame = warp_perspective(canny, width, height)
+    (thresh, res) = cv2.threshold(gray, 195, 255, cv2.THRESH_BINARY)
     
-    lines = detect_lines(roi)
+    roi = ROI(res, width, height)
+    
+    dilate = cv2.dilate(roi, np.ones((4, 4), dtype = np.uint8), iterations = 8)
+    filled_roi = cv2.morphologyEx(dilate, op = cv2.MORPH_CLOSE, kernel = np.ones((4, 4), dtype = np.uint8), iterations = 12)
+    warped_frame = warp_perspective(filled_roi, width, height)
+    
+    lines = detect_lines(filled_roi)
     (left_lane_base, right_lane_base) = lane_to_histogram(warped_frame)
     
     if lines is None:
@@ -249,7 +241,7 @@ def get_feedback_from_lane(frame: np.ndarray, debug: bool = False) -> str:
     lane_lines_frame = display_lines(frame, lane_lines)
     
     (center_top, center_bottom) = find_center(frame, lane_lines, width)
-    feedback = calculate_feedback(center_bottom, left_lane_base, right_lane_base)
+    feedback = calculate_feedback(center_top, left_lane_base, right_lane_base)
     
     if debug:
         cv2.putText(lane_lines_frame, feedback, (30, 20), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 1) 
@@ -272,10 +264,6 @@ if __name__ == '__main__':
             break
         
         feedback = get_feedback_from_lane(frame, debug = True)
-        
-        # if not feedback:
-            
-        
         print(feedback)
          
         if cv2.waitKey(1) & 0xFF == ord('q'):

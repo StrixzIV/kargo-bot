@@ -11,18 +11,19 @@ gpio.output(direction_pin, False)
 
 for step in range(1600):
     gpio.output(step_pin, True)
-    time.sleep(.001)
+    time.sleep(.0005)
     gpio.output(step_pin, False)
-    time.sleep(.001)
+    time.sleep(.0005)
     print(f'Forward step: {step}')
     
+time.sleep(3)
 gpio.output(direction_pin, True)
 
 for step in range(1600):
     gpio.output(step_pin, True)
-    time.sleep(.001)
+    time.sleep(.0005)
     gpio.output(step_pin, False)
-    time.sleep(.001)
+    time.sleep(.0005)
     print(f'Backward step: {step}')
         
     

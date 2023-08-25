@@ -7,9 +7,7 @@ import RPi.GPIO as gpio
 (en_left, en_right) = (19, 13)
 (in1, in2, in3, in4) = (25, 24, 23, 18)
 
-sensitivity = 15
-lower_white = np.array([0,0,255-sensitivity])
-upper_white = np.array([255,sensitivity,255])
+(pre_error, error_sum) = (0, 0)
 
 gpio.setmode(gpio.BCM)
 
@@ -179,46 +177,41 @@ def find_center(frame: np.ndarray, lane_lines: any, width: int) -> tuple[int, in
    
 def calculate_feedback(lane_center_point: float, left_x_base: int, right_x_base: int) -> str:
     
+    global pre_error, error_sum
+    
     lane_center = left_x_base + (right_x_base - left_x_base) / 2
     
-    left_spd = 38
-    right_spd = 35
+    base_spd = 35
+    max_spd = 45
+    min_spd = 25
     
-    deviation = lane_center_point - lane_center
+    deviation = (lane_center_point - lane_center) / 10
     print(lane_center, deviation)
  
-    if 400 <= lane_center < 430:
-        
-        power_left.ChangeDutyCycle(left_spd + .25)
-        power_right.ChangeDutyCycle(25)
-        
-        return 'Smooth Left'
+    (k_p, k_i, k_d) = (1.28, 0.002, 0.06)
     
-    elif 280 <= lane_center < 400:
-        
-        power_left.ChangeDutyCycle(left_spd)
-        power_right.ChangeDutyCycle(right_spd)
-        
-        return 'Straight'
+    adjust = (k_p * deviation) + (k_d * (deviation - pre_error)) + (k_i * error_sum)
     
-    elif 260 <= lane_center < 280:
-        
-        power_left.ChangeDutyCycle(25)
-        power_right.ChangeDutyCycle(right_spd + .25)
-        
-        return 'Smooth Right'
+    left_spd = base_spd + adjust
+    right_spd = base_spd - adjust
     
-    else:
-        power_left.ChangeDutyCycle(left_spd)
-        power_right.ChangeDutyCycle(right_spd)
+    if left_spd > max_spd: left_spd = max_spd
+    elif right_spd > max_spd: right_spd = max_spd
+    
+    if left_spd < min_spd: left_spd = min_spd
+    elif right_spd < min_spd: right_spd = min_spd
+    
+    power_left.ChangeDutyCycle(left_spd - .75)
+    power_right.ChangeDutyCycle(right_spd + 2.75)
+    
+    pre_error = deviation
+    error_sum += deviation
     
      
     
 def get_feedback_from_lane(frame: np.ndarray, debug: bool = False) -> str:
 
     (height, width, _color) = frame.shape
-        
-    # denoised_frame = cv2.filter2D(frame, -1, kernel)
     
     frame = cv2.GaussianBlur(frame, ksize = (3, 3), sigmaX = 4)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -246,7 +239,7 @@ def get_feedback_from_lane(frame: np.ndarray, debug: bool = False) -> str:
     
     
     (center_top, center_bottom) = find_center(frame, lane_lines, width)
-    feedback = calculate_feedback(center_top, left_lane_base, right_lane_base)
+    feedback = calculate_feedback(center_bottom, left_lane_base, right_lane_base)
     
     if debug:
         cv2.putText(filled_roi, str(center_top), (30, 20), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 1) 
@@ -268,7 +261,7 @@ if __name__ == '__main__':
         if not is_frame:
             break
         
-        feedback = get_feedback_from_lane(frame, debug = True)
+        feedback = get_feedback_from_lane(frame)
         print(feedback)
          
         if cv2.waitKey(1) & 0xFF == ord('q'):

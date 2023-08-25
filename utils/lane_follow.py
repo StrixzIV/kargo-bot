@@ -11,6 +11,9 @@ sensitivity = 15
 lower_white = np.array([0,0,255-sensitivity])
 upper_white = np.array([255,sensitivity,255])
 
+error_sum = 0
+pre_error = 0
+
 gpio.setmode(gpio.BCM)
 
 gpio.setup(in1, gpio.OUT)
@@ -87,7 +90,7 @@ def detect_lines(frame: np.ndarray) -> any:
     return line_segments
 
 
-def map_coordinates(frame, parameters, height):
+def map_coordinates(parameters, height):
     
     slope, intercept = parameters   # Unpack slope and intercept from the given parameters
     
@@ -95,7 +98,7 @@ def map_coordinates(frame, parameters, height):
         slope = 0.1     # handle it for reducing Divisiob by Zero error
     
     y1 = height             # Point bottom of the frame
-    y2 = int(height*0.72)  # Make point from middle of the frame down  
+    y2 = int(height / 2)  # Make point from middle of the frame down  
     x1 = int((y1 - intercept) / slope)  # Calculate x1 by the formula (y-intercept)/slope
     x2 = int((y2 - intercept) / slope)  # Calculate x2 by the formula (y-intercept)/slope
     
@@ -163,7 +166,7 @@ def lane_to_histogram(frame: np.ndarray) -> tuple[int, int]:
     return (left_x_base, right_x_base)
 
 
-def find_center(frame: np.ndarray, lane_lines: any, width: int) -> tuple[int, int]:
+def find_center(lane_lines: any, width: int) -> tuple[int, int]:
     
     if len(lane_lines) != 2:
         return (int(width*1.9), int(width*1.9))
@@ -177,41 +180,40 @@ def find_center(frame: np.ndarray, lane_lines: any, width: int) -> tuple[int, in
     return (up_mid, low_mid)
     
    
-def calculate_feedback(lane_center_point: float, left_x_base: int, right_x_base: int) -> str:
+def calculate_feedback(lane_center_point: float, left_x_base: int, right_x_base: int) -> tuple[int, int]:
+    
+    global pre_error, error_sum
     
     lane_center = left_x_base + (right_x_base - left_x_base) / 2
     
-    left_spd = 38
-    right_spd = 35
+    base_spd = 35
+    
+    min_spd = 30
+    max_spd = 45
     
     deviation = lane_center_point - lane_center
-    print(lane_center, deviation)
- 
-    if 400 <= lane_center < 430:
-        
-        power_left.ChangeDutyCycle(left_spd + .25)
-        power_right.ChangeDutyCycle(25)
-        
-        return 'Smooth Left'
+    print(lane_center, deviation)  
     
-    elif 280 <= lane_center < 400:
-        
-        power_left.ChangeDutyCycle(left_spd)
-        power_right.ChangeDutyCycle(right_spd)
-        
-        return 'Straight'
+    (k_p, k_i, k_d) = (0.5, 0.1, 5)
     
-    elif 260 <= lane_center < 280:
-        
-        power_left.ChangeDutyCycle(25)
-        power_right.ChangeDutyCycle(right_spd + .25)
-        
-        return 'Smooth Right'
+    adjust = (k_p * deviation) + (k_d * (deviation - pre_error)) + (k_i * error_sum)
     
-    else:
-        power_left.ChangeDutyCycle(left_spd)
-        power_right.ChangeDutyCycle(right_spd)
+    left_spd = base_spd + adjust
+    right_spd = base_spd - adjust
     
+    if left_spd > max_spd: left_spd = max_spd
+    elif right_spd > max_spd: right_spd = max_spd
+    
+    if left_spd < min_spd: left_spd = min_spd
+    elif right_spd < min_spd: right_spd = min_spd
+    
+    power_left.ChangeDutyCycle(left_spd)
+    power_right.ChangeDutyCycle(right_spd)
+    
+    pre_error = deviation
+    error_sum += deviation
+    
+    return (left_spd, right_spd)
      
     
 def get_feedback_from_lane(frame: np.ndarray, debug: bool = False) -> str:

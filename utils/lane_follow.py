@@ -181,14 +181,14 @@ def calculate_feedback(lane_center_point: float, left_x_base: int, right_x_base:
     
     lane_center = left_x_base + (right_x_base - left_x_base) / 2
     
-    base_spd = 35
-    max_spd = 45
-    min_spd = 25
+    base_spd = 50
+    max_spd = 70
+    min_spd = 30
     
     deviation = (lane_center_point - lane_center) / 10
     print(lane_center, deviation)
  
-    (k_p, k_i, k_d) = (1.28, 0.002, 0.06)
+    (k_p, k_i, k_d) = (18, 0.002, 180)
     
     adjust = (k_p * deviation) + (k_d * (deviation - pre_error)) + (k_i * error_sum)
     

@@ -188,7 +188,7 @@ def calculate_feedback(lane_center_point: float, left_x_base: int, right_x_base:
     deviation = (lane_center_point - lane_center) / 10
     print(lane_center, deviation)
  
-    (k_p, k_i, k_d) = (18, 0.002, 180)
+    (k_p, k_i, k_d) = (15, 0.002, 200)
     
     adjust = (k_p * deviation) + (k_d * (deviation - pre_error)) + (k_i * error_sum)
     
@@ -201,8 +201,8 @@ def calculate_feedback(lane_center_point: float, left_x_base: int, right_x_base:
     if left_spd < min_spd: left_spd = min_spd
     elif right_spd < min_spd: right_spd = min_spd
     
-    power_left.ChangeDutyCycle(left_spd - .75)
-    power_right.ChangeDutyCycle(right_spd + 2.75)
+    power_left.ChangeDutyCycle(left_spd)
+    power_right.ChangeDutyCycle(right_spd)
     
     pre_error = deviation
     error_sum += deviation
@@ -210,18 +210,25 @@ def calculate_feedback(lane_center_point: float, left_x_base: int, right_x_base:
      
     
 def get_feedback_from_lane(frame: np.ndarray, debug: bool = False) -> str:
-
+    
     (height, width, _color) = frame.shape
     
+    show_frame = frame.copy()
+    
     frame = cv2.GaussianBlur(frame, ksize = (3, 3), sigmaX = 4)
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    lower_red = np.array((0, 50, 50))
+    upper_red = np.array((10, 255, 255))
     
-    (thresh, res) = cv2.threshold(gray, 190, 255, cv2.THRESH_BINARY)
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    gray = cv2.cvtColor(frame.copy(), cv2.COLOR_BGR2GRAY)
     
-    roi = ROI(res, width, height)
+    (thresh, res) = cv2.threshold(gray, 200, 230, cv2.THRESH_BINARY)
+    mask = cv2.inRange(frame, lower_red, upper_red) + res
     
-    dilate = cv2.dilate(roi, np.ones((3, 3), dtype = np.uint8), iterations = 1)
-    filled_roi = cv2.morphologyEx(dilate, op = cv2.MORPH_CLOSE, kernel = np.ones((5, 5), dtype = np.uint8), iterations = 4)
+    roi = ROI(mask, width, height)
+    
+    dilate = cv2.dilate(roi, np.ones((3, 3), dtype = np.uint8), iterations = 2)
+    filled_roi = cv2.morphologyEx(dilate, op = cv2.MORPH_CLOSE, kernel = np.ones((5, 5), dtype = np.uint8), iterations = 10)
     warped_frame = warp_perspective(filled_roi, width, height)
     
     lines = detect_lines(filled_roi)
@@ -232,22 +239,19 @@ def get_feedback_from_lane(frame: np.ndarray, debug: bool = False) -> str:
     
     try:
         lane_lines = optimize_lines(frame, lines, width, height)
-        lane_lines_frame = display_lines(frame, lane_lines)
+        lane_lines_frame = display_lines(show_frame, lane_lines)
         
     except:
         return
-    
     
     (center_top, center_bottom) = find_center(frame, lane_lines, width)
     feedback = calculate_feedback(center_bottom, left_lane_base, right_lane_base)
     
     if debug:
-        cv2.putText(filled_roi, str(center_top), (30, 20), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 1) 
+        cv2.putText(show_frame, str(center_top), (30, 20), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 1) 
         cv2.imshow('ROI', filled_roi)
         cv2.imshow('Warped', warped_frame)
         cv2.imshow('Line visualize', lane_lines_frame)
-    
-    return feedback
 
 
 if __name__ == '__main__':
@@ -261,7 +265,7 @@ if __name__ == '__main__':
         if not is_frame:
             break
         
-        feedback = get_feedback_from_lane(frame)
+        feedback = get_feedback_from_lane(frame, True)
         print(feedback)
          
         if cv2.waitKey(1) & 0xFF == ord('q'):

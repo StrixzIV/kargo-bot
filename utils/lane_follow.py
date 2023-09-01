@@ -1,9 +1,12 @@
 import cv2 
 import numpy as np
 
+import time
 import board
 import neopixel
 import RPi.GPIO as gpio
+
+from ultrasonic import get_distance
 
 (en_left, en_right) = (19, 13)
 (in1, in2, in3, in4) = (25, 24, 23, 18)
@@ -253,7 +256,6 @@ def get_feedback_from_lane(frame: np.ndarray, debug: bool = False, base_spd: flo
 if __name__ == '__main__':
     
     cam_stream = cv2.VideoCapture(0)
-    light_matrix.fill((255, 255, 255))
     
     try:
         while True:
@@ -263,6 +265,23 @@ if __name__ == '__main__':
 
                 if not is_frame:
                     break
+                
+                distance = get_distance()
+                
+                print(distance)
+                
+                if distance <= 50:
+                    
+                    power_left.ChangeDutyCycle(0)
+                    power_right.ChangeDutyCycle(0)
+                    
+                    light_matrix.fill((255, 0, 0))
+                    
+                    time.sleep(1)
+                    
+                    continue
+                    
+                light_matrix.fill((255, 255, 255))
                 
                 feedback = get_feedback_from_lane(frame, False)
                 print(feedback)

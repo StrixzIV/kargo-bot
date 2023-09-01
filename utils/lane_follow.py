@@ -1,7 +1,8 @@
 import cv2 
 import numpy as np
 
-import time
+import board
+import neopixel
 import RPi.GPIO as gpio
 
 (en_left, en_right) = (19, 13)
@@ -29,6 +30,8 @@ power_right = gpio.PWM(en_right, 50)
 
 power_left.start(0)
 power_right.start(0)
+
+light_matrix = neopixel.NeoPixel(board.D10, 16, brightness = 0.3)
 
 kernel = np.ones((3, 3), np.float32) / 10
 
@@ -58,13 +61,13 @@ def warp_perspective(frame: np.ndarray, width: int, height: int) -> np.ndarray:
     '''
     
     # Offset for frame ratio saving
-    offset = 50    
+    offset = 30    
     
     source_points = np.float32([
-        [int(width*0.20), int(height*0.5)], # Top-left point
-        [int(width*0.80), int(height*0.5)], # Top-right point
+        [(width*0.2), int(height*0.5)], # Top-left point
+        [(width*0.8), int(height*0.5)], # Top-right point
         [0, height], # Bottom-left point
-        [width, height] # Bottom-right point
+        [width, height], # Bottom-right point
     ])
     
     destination_points = np.float32([
@@ -75,13 +78,13 @@ def warp_perspective(frame: np.ndarray, width: int, height: int) -> np.ndarray:
     ])
 
     matrix = cv2.getPerspectiveTransform(source_points, destination_points)
-    warped_frame = cv2.warpPerspective(frame, matrix, (width, height))    
+    warped_frame = cv2.warpPerspective(frame, matrix, (width, height))
 
     return warped_frame
 
 
 def detect_lines(frame: np.ndarray) -> any:
-    line_segments = cv2.HoughLinesP(frame, 1, np.pi / 180 , 50, np.array([]), minLineLength = 30, maxLineGap = 150)
+    line_segments = cv2.HoughLinesP(frame, 1, np.pi / 180 , 50, np.array([]), minLineLength = 140, maxLineGap = 10)
     return line_segments
 
 
@@ -175,26 +178,20 @@ def find_center(frame: np.ndarray, lane_lines: any, width: int) -> tuple[int, in
     return (up_mid, low_mid)
     
    
-def calculate_feedback(lane_center_point: float, left_x_base: int, right_x_base: int) -> str:
+def calculate_feedback(lane_center_point: float, left_x_base: int, right_x_base: int, base_spd: float, min_spd: float, max_spd: float, k_p: float, k_i: float, k_d: float) -> None:
     
     global pre_error, error_sum
     
     lane_center = left_x_base + (right_x_base - left_x_base) / 2
     
-    base_spd = 50
-    max_spd = 70
-    min_spd = 30
-    
     deviation = (lane_center_point - lane_center) / 10
     print(lane_center, deviation)
- 
-    (k_p, k_i, k_d) = (15, 0.002, 200)
     
     adjust = (k_p * deviation) + (k_d * (deviation - pre_error)) + (k_i * error_sum)
     
     left_spd = base_spd + adjust
     right_spd = base_spd - adjust
-    
+        
     if left_spd > max_spd: left_spd = max_spd
     elif right_spd > max_spd: right_spd = max_spd
     
@@ -209,27 +206,26 @@ def calculate_feedback(lane_center_point: float, left_x_base: int, right_x_base:
     
      
     
-def get_feedback_from_lane(frame: np.ndarray, debug: bool = False) -> str:
+def get_feedback_from_lane(frame: np.ndarray, debug: bool = False, base_spd: float = 30, min_spd: float = 25, max_spd: float = 40, k_p: float = 35, k_i: float = .00015, k_d: float = 45) -> str:
     
     (height, width, _color) = frame.shape
     
     show_frame = frame.copy()
     
     frame = cv2.GaussianBlur(frame, ksize = (3, 3), sigmaX = 4)
-    lower_red = np.array((0, 50, 50))
+    
+    lower_red = np.array((0, 20, 20))
     upper_red = np.array((10, 255, 255))
     
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    gray = cv2.cvtColor(frame.copy(), cv2.COLOR_BGR2GRAY)
+    red_mask = cv2.inRange(frame.copy(), lower_red, upper_red)
     
-    (thresh, res) = cv2.threshold(gray, 200, 230, cv2.THRESH_BINARY)
-    mask = cv2.inRange(frame, lower_red, upper_red) + res
+    roi = ROI(red_mask, width, height)
     
-    roi = ROI(mask, width, height)
-    
-    dilate = cv2.dilate(roi, np.ones((3, 3), dtype = np.uint8), iterations = 2)
-    filled_roi = cv2.morphologyEx(dilate, op = cv2.MORPH_CLOSE, kernel = np.ones((5, 5), dtype = np.uint8), iterations = 10)
+    filled_roi = cv2.dilate(roi, np.ones((5, 5), dtype = np.uint8), iterations = 6)
     warped_frame = warp_perspective(filled_roi, width, height)
+    
+    warped_frame = cv2.morphologyEx(warped_frame, op = cv2.MORPH_CLOSE, kernel = np.ones((3, 3), dtype = np.uint8), iterations = 3)
     
     lines = detect_lines(filled_roi)
     (left_lane_base, right_lane_base) = lane_to_histogram(warped_frame)
@@ -245,7 +241,7 @@ def get_feedback_from_lane(frame: np.ndarray, debug: bool = False) -> str:
         return
     
     (center_top, center_bottom) = find_center(frame, lane_lines, width)
-    feedback = calculate_feedback(center_bottom, left_lane_base, right_lane_base)
+    calculate_feedback(center_bottom, left_lane_base, right_lane_base, base_spd, min_spd, max_spd, k_p, k_i, k_d)
     
     if debug:
         cv2.putText(show_frame, str(center_top), (30, 20), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 1) 
@@ -257,16 +253,25 @@ def get_feedback_from_lane(frame: np.ndarray, debug: bool = False) -> str:
 if __name__ == '__main__':
     
     cam_stream = cv2.VideoCapture(0)
+    light_matrix.fill((255, 255, 255))
     
-    while True:
+    try:
+        while True:
+            
 
-        (is_frame, frame) = cam_stream.read()
+                (is_frame, frame) = cam_stream.read()
 
-        if not is_frame:
-            break
-        
-        feedback = get_feedback_from_lane(frame, True)
-        print(feedback)
-         
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+                if not is_frame:
+                    break
+                
+                feedback = get_feedback_from_lane(frame, False)
+                print(feedback)
+                
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    light_matrix.fill((0, 0, 0))
+                    gpio.cleanup()
+                    break
+                
+    except KeyboardInterrupt:
+        light_matrix.fill((0, 0, 0))
+        gpio.cleanup()

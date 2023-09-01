@@ -82,14 +82,15 @@ def pose_estimation(frame: np.ndarray, aruco_dict: cv2.aruco.Dictionary, aruco_p
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
     (corners, ids, rejected) = cv2.aruco.detectMarkers(gray, aruco_dict, parameters = aruco_params)
+    
+    data = []
 
     if corners:
         for i in range(0, len(ids)):
             
             (rotation_vector, transformation_vector, marker_points) = cv2.aruco.estimatePoseSingleMarkers(corners[i], 0.02, matrix_coefficients, distortion_coefficients)
-
             (transformation_vector, rotation_vector) = (transformation_vector[0, 0, :], rotation_vector[0, 0, :])
-
+            
             cv2.putText(
                 frame,
                 text = f'#{ids[i]} -> tvecs = x: {transformation_vector[0]:.2f}, y: {transformation_vector[1]:.2f}, z: {transformation_vector[2]:.2f}',
@@ -114,8 +115,22 @@ def pose_estimation(frame: np.ndarray, aruco_dict: cv2.aruco.Dictionary, aruco_p
                 color = (0, 255, 0),
                 thickness = 2
             )
+            
+            data.append({
+                'id': ids[i][0],
+                'tvecs': {
+                    'x': round(transformation_vector[0], 2),
+                    'y': round(transformation_vector[1], 2),
+                    'z': round(transformation_vector[2], 2)
+                },
+                'rvecs': {
+                    'roll': round(roll_deg, 2),
+                    'pitch': round(pitch_deg, 2),
+                    'yaw': round(yaw_deg, 2)
+                }
+            })
 
             cv2.aruco.drawDetectedMarkers(frame, corners)
             cv2.drawFrameAxes(frame, matrix_coefficients, distortion_coefficients, rotation_vector, transformation_vector, 0.01)
 
-    return frame
+    return data

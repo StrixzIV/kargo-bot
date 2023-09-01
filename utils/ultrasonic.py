@@ -32,8 +32,6 @@ def get_distance() -> float:
     timedelta = stop - start
     distance = round(timedelta * 17150, 2)
     
-    time.sleep(0.01)
-    
     return distance
 
 

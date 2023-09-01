@@ -25,5 +25,5 @@ for step in range(1600):
     gpio.output(step_pin, False)
     time.sleep(.0005)
     print(f'Backward step: {step}')
-        
     
+gpio.cleanup()

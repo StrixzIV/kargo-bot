@@ -6,8 +6,6 @@ import board
 import neopixel
 import RPi.GPIO as gpio
 
-from ultrasonic import get_distance
-
 (en_left, en_right) = (19, 13)
 (in1, in2, in3, in4) = (25, 24, 23, 18)
 
@@ -251,9 +249,11 @@ def get_feedback_from_lane(frame: np.ndarray, debug: bool = False, base_spd: flo
         cv2.imshow('ROI', filled_roi)
         cv2.imshow('Warped', warped_frame)
         cv2.imshow('Line visualize', lane_lines_frame)
-
-
+        
+    
 if __name__ == '__main__':
+    
+    from ultrasonic import get_distance
     
     cam_stream = cv2.VideoCapture(0)
     

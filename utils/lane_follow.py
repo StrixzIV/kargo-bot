@@ -223,7 +223,8 @@ def get_feedback_from_lane(frame: np.ndarray, debug: bool = False, base_spd: flo
     
     roi = ROI(red_mask, width, height)
     
-    filled_roi = cv2.dilate(roi, np.ones((5, 5), dtype = np.uint8), iterations = 6)
+    filled_roi = cv2.morphologyEx(roi, cv2.MORPH_OPEN, np.ones((2, 2), np.uint8), iterations = 1)
+    filled_roi = cv2.dilate(filled_roi, np.ones((3, 3), dtype = np.uint8), iterations = 15)
     warped_frame = warp_perspective(filled_roi, width, height)
     
     warped_frame = cv2.morphologyEx(warped_frame, op = cv2.MORPH_CLOSE, kernel = np.ones((3, 3), dtype = np.uint8), iterations = 3)
@@ -248,7 +249,6 @@ def get_feedback_from_lane(frame: np.ndarray, debug: bool = False, base_spd: flo
         cv2.putText(show_frame, str(center_top), (30, 20), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 1) 
         cv2.imshow('ROI', filled_roi)
         cv2.imshow('Warped', warped_frame)
-        cv2.imshow('Line visualize', lane_lines_frame)
         
     
 if __name__ == '__main__':

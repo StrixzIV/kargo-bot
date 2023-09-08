@@ -21,30 +21,31 @@ with open('./calibration_output/calibration.pkl', 'rb') as f:
 
 
 try:
+    
+    light_matrix.fill((255, 255, 255))
+    
     while True:
 
-        light_matrix.fill((255, 255, 255))
         (is_frame, frame) = cam_stream.read()
 
         if not is_frame:
             continue
         
-        distance = get_distance()
+        # distance = get_distance()
                     
-        print(f'Distance: {distance}')
+        # print(f'Distance: {distance}')
         
-        if distance <= 50:
+        # if distance <= 50:
             
-            power_left.ChangeDutyCycle(0)
-            power_right.ChangeDutyCycle(0)
+        #     power_left.ChangeDutyCycle(0)
+        #     power_right.ChangeDutyCycle(0)
             
-            light_matrix.fill((255, 0, 0))
-            time.sleep(1)
-            light_matrix.fill((255, 255, 255))
+        #     light_matrix.fill((255, 0, 0))
+        #     time.sleep(1)
+        #     light_matrix.fill((255, 255, 255))
             
-            continue
+        #     continue
             
-
         detected_markers = pose_estimation(frame, aruco_dict, aruco_params, camera_matrix, distortion_coefficients)
         print(detected_markers)
         
@@ -61,11 +62,11 @@ try:
             
             continue
             
-        if detected_markers:
+        if detected_markers and abs(detected_markers[0]['tvecs']['z']) <= .15:
             
             print('Target found')
             
-            for _ in range(5):
+            for _ in range(20):
                 
                 if detected_markers[0]['rvecs']['pitch'] > 0:
                     
@@ -88,16 +89,16 @@ try:
                 power_left.ChangeDutyCycle(50)
                 power_right.ChangeDutyCycle(50)
                 
-                time.sleep(1.5)
+                time.sleep(2.5)
                 
                 power_left.ChangeDutyCycle(50)
-                power_right.ChangeDutyCycle(30)
+                power_right.ChangeDutyCycle(0)
                 
-                time.sleep(5)
+                time.sleep(1.5)
                 
-                for _ in range(5):
+                for _ in range(10):
                     (is_frame, feedback_frame) = cam_stream.read()
-                    get_feedback_from_lane(feedback_frame)
+                    get_feedback_from_lane(feedback_frame, base_spd = 25)
                 
                 power_left.ChangeDutyCycle(0)
                 power_right.ChangeDutyCycle(0)
@@ -107,17 +108,17 @@ try:
             
             elif target_station == 2:
                 
-                power_left.ChangeDutyCycle(50)
+                power_left.ChangeDutyCycle(55)
                 power_right.ChangeDutyCycle(50)
                 
-                time.sleep(5)
+                time.sleep(2)
+                
+                for _ in range(100):
+                    (is_frame, feedback_frame) = cam_stream.read()
+                    get_feedback_from_lane(feedback_frame)
                 
                 power_left.ChangeDutyCycle(0)
                 power_right.ChangeDutyCycle(0)
-                
-                break
-                
-            print(f'Found: #{detected_markers[0]["id"]}')
             
             gpio.output(in1, gpio.HIGH)
             gpio.output(in2, gpio.LOW)
@@ -136,3 +137,8 @@ except:
     gpio.cleanup()
     cam_stream.release()
     cv2.destroyAllWindows()
+    
+light_matrix.fill((0, 0, 0))
+gpio.cleanup()
+cam_stream.release()
+cv2.destroyAllWindows()

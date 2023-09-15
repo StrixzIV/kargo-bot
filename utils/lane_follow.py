@@ -207,7 +207,7 @@ def calculate_feedback(lane_center_point: float, left_x_base: int, right_x_base:
     
      
     
-def get_feedback_from_lane(frame: np.ndarray, debug: bool = False, base_spd: float = 30, min_spd: float = 25, max_spd: float = 40, k_p: float = 35, k_i: float = .00015, k_d: float = 45) -> str:
+def get_feedback_from_lane(frame: np.ndarray, debug: bool = False, base_spd: float = 30, min_spd: float = 25, max_spd: float = 40, k_p: float = 80, k_i: float = .000152, k_d: float = 400) -> str:
     
     (height, width, _color) = frame.shape
     

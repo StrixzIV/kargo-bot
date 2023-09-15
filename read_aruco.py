@@ -5,6 +5,7 @@ import RPi.GPIO as gpio
 
 from rich import print
 from utils.aruco import pose_estimation
+from utils.stepper import lift_up, lift_down
 from utils.ultrasonic import get_distance
 from utils.lane_follow import get_feedback_from_lane, power_left, power_right, in1, in2, in3, in4, light_matrix
 
@@ -65,43 +66,46 @@ try:
         if detected_markers and abs(detected_markers[0]['tvecs']['z']) <= .15:
             
             print('Target found')
-            
-            for _ in range(20):
-                
-                if detected_markers[0]['rvecs']['pitch'] > 0:
-                    
-                    power_left.ChangeDutyCycle(10)
-                    power_right.ChangeDutyCycle(0)
-                    
-                    time.sleep(0.1)
-                
-                elif detected_markers[0]['rvecs']['pitch'] < 0:
-                    
-                    power_left.ChangeDutyCycle(0)
-                    power_right.ChangeDutyCycle(10)
-                    
-                    time.sleep(0.1)
-                    
-            print('Adjustment complete')
                     
             if target_station == 1:
                 
                 power_left.ChangeDutyCycle(50)
                 power_right.ChangeDutyCycle(50)
                 
-                time.sleep(2.5)
+                time.sleep(3.25)
+                
+                gpio.output(in1, gpio.LOW)
+                gpio.output(in2, gpio.HIGH)
+                gpio.output(in3, gpio.HIGH)
+                gpio.output(in4, gpio.LOW)
                 
                 power_left.ChangeDutyCycle(50)
-                power_right.ChangeDutyCycle(0)
+                power_right.ChangeDutyCycle(50)
                 
-                time.sleep(1.5)
+                time.sleep(1.1)
                 
-                for _ in range(10):
+                gpio.output(in1, gpio.HIGH)
+                gpio.output(in2, gpio.LOW)
+                gpio.output(in3, gpio.HIGH)
+                gpio.output(in4, gpio.LOW)
+                
+                for _ in range(20):
                     (is_frame, feedback_frame) = cam_stream.read()
-                    get_feedback_from_lane(feedback_frame, base_spd = 25)
+                    get_feedback_from_lane(feedback_frame)
+                
+                power_left.ChangeDutyCycle(50)
+                power_right.ChangeDutyCycle(50)
+                
+                time.sleep(2)
                 
                 power_left.ChangeDutyCycle(0)
                 power_right.ChangeDutyCycle(0)
+                
+                lift_up()
+                
+                time.sleep(0.5)
+                
+                lift_down()
                 
                 break
                 
@@ -111,9 +115,9 @@ try:
                 power_left.ChangeDutyCycle(55)
                 power_right.ChangeDutyCycle(50)
                 
-                time.sleep(2)
+                time.sleep(1.5)
                 
-                for _ in range(100):
+                for _ in range(15):
                     (is_frame, feedback_frame) = cam_stream.read()
                     get_feedback_from_lane(feedback_frame)
                 
@@ -124,13 +128,14 @@ try:
             gpio.output(in2, gpio.LOW)
             gpio.output(in3, gpio.HIGH)
             gpio.output(in4, gpio.LOW)
-
+            
         if cv2.waitKey(1) & 0xFF == ord('q'):
             light_matrix.fill((0, 0, 0))
             gpio.cleanup()
             cam_stream.release()
             cv2.destroyAllWindows()
             break
+        
         
 except:
     light_matrix.fill((0, 0, 0))

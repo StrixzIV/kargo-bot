@@ -7,23 +7,36 @@ gpio.setmode(gpio.BCM)
 gpio.setup(step_pin, gpio.OUT)
 gpio.setup(direction_pin, gpio.OUT)
 
-gpio.output(direction_pin, False)
-
-for step in range(1600):
-    gpio.output(step_pin, True)
-    time.sleep(.0005)
-    gpio.output(step_pin, False)
-    time.sleep(.0005)
-    print(f'Forward step: {step}')
+def lift_up() -> None:
     
-time.sleep(3)
-gpio.output(direction_pin, True)
+    gpio.output(direction_pin, False)
 
-for step in range(1600):
-    gpio.output(step_pin, True)
-    time.sleep(.0005)
-    gpio.output(step_pin, False)
-    time.sleep(.0005)
-    print(f'Backward step: {step}')
+    for step in range(2000):
+        gpio.output(step_pin, True)
+        time.sleep(.0005)
+        gpio.output(step_pin, False)
+        time.sleep(.0005)
+        print(f'Forward step: {step}')
+   
     
-gpio.cleanup()
+def lift_down() -> None:
+    
+    gpio.output(direction_pin, True)
+
+    for step in range(2000):
+        gpio.output(step_pin, True)
+        time.sleep(.0005)
+        gpio.output(step_pin, False)
+        time.sleep(.0005)
+        print(f'Backward step: {step}')
+        
+
+if __name__ == '__main__':
+    
+    lift_up()  
+    time.sleep(3)
+    
+    lift_down()
+
+    
+    gpio.cleanup()

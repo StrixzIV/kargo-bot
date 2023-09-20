@@ -183,9 +183,9 @@ def calculate_feedback(lane_center_point: float, left_x_base: int, right_x_base:
     
     global pre_error, error_sum
     
-    lane_center = left_x_base + (right_x_base - left_x_base) / 2
+    lane_center = (right_x_base - left_x_base) / 2
     
-    deviation = (lane_center_point - lane_center) / 10
+    deviation = (lane_center_point - lane_center) / 5
     print(lane_center, deviation)
     
     adjust = (k_p * deviation) + (k_d * (deviation - pre_error)) + (k_i * error_sum)
@@ -207,7 +207,7 @@ def calculate_feedback(lane_center_point: float, left_x_base: int, right_x_base:
     
      
     
-def get_feedback_from_lane(frame: np.ndarray, debug: bool = False, base_spd: float = 30, min_spd: float = 25, max_spd: float = 40, k_p: float = 80, k_i: float = .000152, k_d: float = 400) -> str:
+def get_feedback_from_lane(frame: np.ndarray, debug: bool = False, base_spd: float = 30, min_spd: float = 25, max_spd: float = 40, k_p: float = 500, k_i: float = .0001, k_d: float = 2500) -> str:
     
     (height, width, _color) = frame.shape
     

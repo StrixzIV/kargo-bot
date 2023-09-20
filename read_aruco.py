@@ -52,7 +52,7 @@ try:
         
         if not detected_markers:
             
-            get_feedback_from_lane(frame, False)
+            get_feedback_from_lane(frame)
             
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 light_matrix.fill((0, 0, 0))
@@ -63,7 +63,7 @@ try:
             
             continue
             
-        if detected_markers and abs(detected_markers[0]['tvecs']['z']) <= .15:
+        if detected_markers and abs(detected_markers[0]['tvecs']['z']) <= .22:
             
             print('Target found')
                     
@@ -72,31 +72,34 @@ try:
                 power_left.ChangeDutyCycle(50)
                 power_right.ChangeDutyCycle(50)
                 
-                time.sleep(3.25)
+                time.sleep(3)
                 
                 gpio.output(in1, gpio.LOW)
                 gpio.output(in2, gpio.HIGH)
                 gpio.output(in3, gpio.HIGH)
                 gpio.output(in4, gpio.LOW)
                 
-                power_left.ChangeDutyCycle(50)
-                power_right.ChangeDutyCycle(50)
+                power_left.ChangeDutyCycle(40)
+                power_right.ChangeDutyCycle(40)
                 
-                time.sleep(1.1)
+                time.sleep(1.25)
                 
                 gpio.output(in1, gpio.HIGH)
                 gpio.output(in2, gpio.LOW)
                 gpio.output(in3, gpio.HIGH)
                 gpio.output(in4, gpio.LOW)
                 
-                for _ in range(20):
-                    (is_frame, feedback_frame) = cam_stream.read()
-                    get_feedback_from_lane(feedback_frame)
+                power_left.ChangeDutyCycle(38.5)
+                power_right.ChangeDutyCycle(35)
                 
-                power_left.ChangeDutyCycle(50)
-                power_right.ChangeDutyCycle(50)
+                time.sleep(5)
                 
-                time.sleep(2)
+                power_left.ChangeDutyCycle(0)
+                power_right.ChangeDutyCycle(0)
+                
+                # for _ in range(50):
+                #     (is_frame, feedback_frame) = cam_stream.read()
+                #     get_feedback_from_lane(feedback_frame)
                 
                 power_left.ChangeDutyCycle(0)
                 power_right.ChangeDutyCycle(0)
@@ -137,11 +140,12 @@ try:
             break
         
         
-except:
+except Exception as e:
     light_matrix.fill((0, 0, 0))
     gpio.cleanup()
     cam_stream.release()
     cv2.destroyAllWindows()
+    print(e)
     
 light_matrix.fill((0, 0, 0))
 gpio.cleanup()

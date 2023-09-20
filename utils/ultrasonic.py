@@ -3,7 +3,7 @@ import RPi.GPIO as gpio
 
 gpio.setmode(gpio.BCM)
 
-(trig, echo) = (6, 27)
+(trig, echo) = (22, 27)
 
 gpio.setup(trig, gpio.OUT)
 gpio.setup(echo, gpio.IN)

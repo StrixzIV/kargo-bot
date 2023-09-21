@@ -3,7 +3,7 @@ import RPi.GPIO as gpio
 
 gpio.setmode(gpio.BCM)
 
-(trig, echo) = (22, 27)
+(trig, echo) = (5, 6)
 
 gpio.setup(trig, gpio.OUT)
 gpio.setup(echo, gpio.IN)
@@ -40,3 +40,4 @@ if __name__ == '__main__':
     while True:
         distance = get_distance()
         print(distance)
+        time.sleep(.1)

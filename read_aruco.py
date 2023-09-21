@@ -32,20 +32,20 @@ try:
         if not is_frame:
             continue
         
-        # distance = get_distance()
+        distance = get_distance()
                     
-        # print(f'Distance: {distance}')
+        print(f'Distance: {distance}')
         
-        # if distance <= 50:
+        if distance <= 50:
             
-        #     power_left.ChangeDutyCycle(0)
-        #     power_right.ChangeDutyCycle(0)
+            power_left.ChangeDutyCycle(0)
+            power_right.ChangeDutyCycle(0)
             
-        #     light_matrix.fill((255, 0, 0))
-        #     time.sleep(1)
-        #     light_matrix.fill((255, 255, 255))
+            light_matrix.fill((255, 0, 0))
+            time.sleep(1)
+            light_matrix.fill((255, 255, 255))
             
-        #     continue
+            continue
             
         detected_markers = pose_estimation(frame, aruco_dict, aruco_params, camera_matrix, distortion_coefficients)
         print(detected_markers)
